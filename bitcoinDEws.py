@@ -35,18 +35,15 @@ from os import urandom
 from base64 import b64encode	# Websocket Key handling
 from struct import unpack	# Websocket Length handling
 
-from twisted.python import log
-
 from twisted.internet import endpoints,reactor,task			# unfortunately reactor is neede in ClientIo0916Protocol
 from twisted.internet.ssl import optionsForClientTLS
-from twisted.internet.defer import Deferred, DeferredList
-from twisted.internet.protocol import Protocol, Factory
+from twisted.internet.protocol import Factory
 from twisted.application.internet import ClientService
 from twisted.protocols import basic
 
 
 class ClientIo0916Protocol(basic.LineReceiver):
-	"""Implements a receiver able to interact with the websocket part of a JS clientIO server.
+     """Implements a receiver able to interact with the websocket part of a JS clientIO server.
 Requests options from the clientIO server and if websocket is avaiable, upgrades the connection 'talk' websocket.
 After actin as a basic.LineReceiver to process the http GET,UPGRADE part (lineReceived), switch to RAW mode (rawDataReceived)."""
 	_MAGIC = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"	# Handshake key signing
@@ -393,7 +390,7 @@ class BitcoinWSSourceV09(MultiSource):
 		print("%s started"%(self))
 	
 	def startedConnecting(self,connector):
-		print("%s connected %d"%(self,connected))
+		print("%s connected %d"%(self,connector))
 	
 	def Lost(self):
 		print("\t%s client called lost"%self)

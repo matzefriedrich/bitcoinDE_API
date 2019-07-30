@@ -35,8 +35,8 @@ from hmac import new as hmac_new
 # Building upon twisted 
 from zope.interface import implements
 from twisted.web.iweb import IBodyProducer
-from twisted.internet.defer import Deferred,succeed
-from twisted.web.client import Agent,readBody,WebClientContextFactory,HTTPConnectionPool
+from twisted.internet.defer import Deferred, succeed
+from twisted.web.client import Agent, WebClientContextFactory, HTTPConnectionPool
 from twisted.web.http_headers import Headers
 from twisted.internet.protocol import Protocol	
 
@@ -106,7 +106,7 @@ class BitcoinDeAPI(object):
 			for k,req in required.items():
 				if len(req) != 0:	# No restriciton on values
 					if kwargs.get(k,None) not in req:
-						print ""
+						print("")
 						return None
 				else:
 					if k not in kwargs.keys():
@@ -171,7 +171,8 @@ class BitcoinDeAPI(object):
 		d.addCallback(self.APIResponse,eid=eid)
 		
 		def Error(result):
-			print "API-Connect-Error",result
+			print("API-Connect-Error", result)
+
 		d.addErrback(Error)
 		return d
 	
@@ -188,11 +189,12 @@ class BitcoinDeAPI(object):
 			header["retry"] = retry
 			finished.addCallback(self.DequeueAPIErrors,eid=eid,header=header)
 		else:
-			print response.code
+			print(response.code)
 			finished.addCallback(self.DequeueAPIErrors,eid=eid,header=header)
 			
 		def Error(result):
-			print "APIResponse DeferredError after code %d"%(response.code)
+			print("APIResponse DeferredError after code %d" % (response.code))
+
 		finished.addErrback(Error)
 		
 		return finished
@@ -209,13 +211,13 @@ class BitcoinDeAPI(object):
 		try:
 			errors = response.get("errors",[{}])[0]
 		except:
-			print "Unknown Error"
+			print("Unknown Error")
 			header["message"] = "Unknown error"
 			return header
 		else:
 			header["errmessage"] = errors.get("message","")
 			header["errcode"] = errors.get("code",-1)
-			print header
+			print(header)
 			self.HandleAPIError(header)
 			return header
 	
@@ -422,7 +424,8 @@ class QueuedBitcoinDeAPI(BitcoinDeAPINonce):
 		finished = Deferred()
 		
 		def Error(result):
-			print "DeferredError after code %d"%(response.code)
+			print("DeferredError after code %d" % (response.code))
+
 		finished.addErrback(Error)
 		
 		response.deliverBody(BtcdeAPIProtocol(finished))
@@ -435,7 +438,7 @@ class QueuedBitcoinDeAPI(BitcoinDeAPINonce):
 			self.lastcredits -= self.pending[eid]
 			if response.code == 429 or response.code == 403:	# 403 might need some extra handling
 				if response.code == 403:
-					print "\n"+header+"\n"
+					print("\n" + header + "\n")
 				retry = int(response.headers.getRawHeaders("Retry-After",[0])[0])
 				header["retry"] = retry
 				self.Reenqueue(eid)
@@ -528,9 +531,9 @@ class BtcdeAPIProtocol(Protocol):
 			if len(self.partial) > 0:
 				data = loads(self.partial)	#json.loads
 			else:
-				print "API-Connection lost, but no data was received, didn't attempt JSON decode",reason
+				print("API-Connection lost, but no data was received, didn't attempt JSON decode", reason)
 		except:
-			print "JSON error",self.partial,reason
+			print("JSON error", self.partial, reason)
 			self.deferred.errback(["JSON data couldn't be loaded properly",self.partial[-20:]])
 		else:
 			self.deferred.callback(data)
@@ -558,7 +561,7 @@ Two Issues are adressed:
 		# derrived config
 		self.bsize = int(max(3,(api.max_seen - 12)/3))	# Calculate number of sizes of the burst
 
-		print "Session %d"%self.sessionID,self.cmd,self.params,"burstsize:",self.bsize
+		print("Session %d" % self.sessionID, self.cmd, self.params, "burstsize:", self.bsize)
 
 		# session-tracking
 		self.pages_fetched = {} # page -> number of times fetched
@@ -585,7 +588,7 @@ Two Issues are adressed:
 		self.pages_pending[page] = deferred
 
 	def Errback(self,result):
-		print "Errback",result,page
+		print("Errback", result)
 		return
 
 	def DErrPage(self,page):
@@ -594,7 +597,7 @@ Two Issues are adressed:
 	def DGetPage(self,result,page=0):
 		code = result.pop("code",None)
 		if code == None:
-			print "DGetPage has no code",result.keys()
+			print("DGetPage has no code", result.keys())
 		phrase = result.pop("phrase","")
 		errors = result.pop("errors",None)
 		pages = result.pop("page",None)
@@ -612,11 +615,11 @@ Two Issues are adressed:
 					self.pages_fetched[page] = 0
 				self.pages_fetched[page] += 1
 
-				print "\nSuccess",code,phrase,page,pages,result.get("call")
-	#		print result.keys()
-	#		print self.pages_fetched,self.pages_pending
+				print("\nSuccess", code, phrase, page, pages, result.get("call"))
+				# print result.keys()
+				# print self.pages_fetched,self.pages_pending
 
-			# Process Results (Check if callback want's more data, register items, count unknowns)
+				# Process Results (Check if callback want's more data, register items, count unknowns)
 				p = {"fetched":self.pages_fetched,"pages":pages,"items":len(self.items)} # 'Progress'
 				pitems = self.ProcessPageResults(result)	# Returns a dict of hash --> item for the current page
 				pfinished = self.page_callback(result,p)	# Feed the dictified result to the callback, which decides if it want's more pages
@@ -649,7 +652,7 @@ Two Issues are adressed:
 							fpages.append(1)
 					else:
 						self.deferred.callback(self.items)
-						print "Finished",self.pages_fetched
+						print("Finished", self.pages_fetched)
 
 				# Reset for new Burst
 				self.burst_pages = {}	# Reset Burst
@@ -663,15 +666,15 @@ Two Issues are adressed:
 
 		except Exception as e:
 			import sys, os, traceback
-			print "DGetPage had an error"
+			print("DGetPage had an error")
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 	#			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-			print exc_type, exc_tb.tb_lineno, exc_tb
+			print(exc_type, exc_tb.tb_lineno, exc_tb)
 			traceback.print_tb(exc_tb)
 			self.deferred.errback(e)
 
 	def ProcessPageResults(self,result):
-		print "Implement ProcessPageResults"
+		print("Implement ProcessPageResults")
 
 	def RegisterPageResults(self,items):
 		unknowns = 0
@@ -693,7 +696,7 @@ class FetchLedger(MultipageFetchSession):
 			for item in ledger:
 				h = hash(item["date"])+hash(item["cashflow"])+hash(item["type"])
 				if h in items.keys():
-					print "Double",item
+					print("Double", item)
 				items[h] = item
 		return items
 
