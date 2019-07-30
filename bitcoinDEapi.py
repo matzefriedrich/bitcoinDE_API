@@ -132,6 +132,7 @@ class BitcoinDeAPI(object):
     def EnqueAPIRequest(self,method,params,uri,credits,priority):
         return self.APIConnect(method,params,uri)
 
+    # noinspection Annotator
     def APIConnect(self,method,params,uri,eid=None):
         """Encapsulates all the API encoding, starts the HTTP request, returns deferred
             eid is used to pass Data along the chain to be used later
