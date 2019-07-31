@@ -611,39 +611,43 @@ class BitcoinWSmulti(object):
     """ClientService ensures restart after connection is lost."""
 
     def __init__(self, servers=[1, 2, 3, 4]):
-        self.servers = {1: ("ws", BitcoinWSSourceV09,), 2: ("ws1", BitcoinWSSourceV09,),
-                        3: ("ws2", BitcoinWSSourceV20,), 4: ("ws3", BitcoinWSSourceV20,)}
-        # self.servers = {1:("ws1",BitcoinWSSourceV09,)}
-        # self.servers = {3:["ws2",BitcoinWSSourceV20,]}
+        self.servers = {1: ("ws", BitcoinWSSourceV09,),
+                        2: ("ws1", BitcoinWSSourceV09,),
+                        3: ("ws2", BitcoinWSSourceV20,),
+                        4: ("ws3", BitcoinWSSourceV20,)}
+
         self.sources = {}
+
         self.connService = {}
 
-        self.streams = {"remove_order": bitcoinWSremoveOrder(), "add_order": bitcoinWSaddOrder()}
-        self.streams["skn"] = bitcoinWSskn()
-        self.streams["spr"] = bitcoinWSspr()
-        self.streams["refresh_express_option"] = bitcoinWSrpo()
+        self.streams = {"remove_order": bitcoinWSremoveOrder(),
+                        "add_order": bitcoinWSaddOrder(),
+                        "skn": bitcoinWSskn(),
+                        "spr": bitcoinWSspr(),
+                        "refresh_express_option": bitcoinWSrpo()}
 
         for sid in servers:
-            addr, pfactory, = self.servers.get(sid, (None, None,))
-            if addr != None:
-                tlsctx = optionsForClientTLS(u'%s.bitcoin.de' % addr, None)
-                endpoint = endpoints.SSL4ClientEndpoint(reactor, '%s.bitcoin.de' % addr, 443, tlsctx)
-                self.sources[sid] = pfactory(sid,
-                                             self)  # Reference to self is passed here, ReceiveEvent is called by source
-                self.connService[sid] = ClientService(endpoint, self.sources[sid])
-                self.connService[sid].startService()
+            addr, factory_creator, = self.servers.get(sid, (None, None,))
+            if addr is not None:
+                context_factory = optionsForClientTLS(u'%s.bitcoin.de' % addr, None)
+                endpoint = endpoints.SSL4ClientEndpoint(reactor, '%s.bitcoin.de' % addr, 443, context_factory)
+                factory = factory_creator(sid, self)
+                self.sources[sid] = factory  # Reference to self is passed here, ReceiveEvent is called by source
+                client_service = ClientService(endpoint, factory)
+                self.connService[sid] = client_service
+                client_service.startService()
 
     def ReceiveEvent(self, evt, data, src, t):
         # Called by source, dispatches to event Stream
         t2 = time()
         stream = self.streams.get(evt, None)
         evt = None
-        if stream != None:
+        if stream is not None:
             evt = stream.ProcessEvent(data, src, t)
         else:
             print("no Event stream for", src, evt, data, t2 - t)
 
-        if evt != None:
+        if evt is not None:
             self.Deliver(evt)
 
     def Deliver(self, evt):
