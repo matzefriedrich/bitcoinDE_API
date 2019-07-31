@@ -35,7 +35,7 @@ from os import urandom
 from base64 import b64encode  # Websocket Key handling
 from struct import unpack  # Websocket Length handling
 
-from twisted.internet import endpoints, reactor, task  # unfortunately reactor is neede in ClientIo0916Protocol
+from twisted.internet import endpoints, reactor, task  # unfortunately reactor is needed in ClientIo0916Protocol
 from twisted.internet.ssl import optionsForClientTLS
 from twisted.internet.protocol import Factory
 from twisted.application.internet import ClientService
@@ -44,8 +44,8 @@ from twisted.protocols import basic
 
 class ClientIo0916Protocol(basic.LineReceiver):
     """Implements a receiver able to interact with the websocket part of a JS clientIO server.
-Requests options from the clientIO server and if websocket is avaiable, upgrades the connection 'talk' websocket.
-After actin as a basic.LineReceiver to process the http GET,UPGRADE part (lineReceived), switch to RAW
+Requests options from the clientIO server and if websocket is available, upgrades the connection 'talk' websocket.
+After acting as a basic.LineReceiver to process the http GET,UPGRADE part (lineReceived), switch to RAW
 mode (rawDataReceived)."""
     _MAGIC = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"  # Handshake key signing
 
@@ -55,7 +55,7 @@ mode (rawDataReceived)."""
         self.http_pos = ""
         self.http_length = 0
 
-        self.pongcount = 0
+        self.pong_count = 0
         self.pingcount = 0
         self.lastpingat = 0
         self.pinginterval = 0
@@ -64,13 +64,13 @@ mode (rawDataReceived)."""
         data = "GET /socket.io/1/?t=%d HTTP/1.1\n" % (time() * 1000)
         self.sendLine(data.encode('utf8'))  # first GET request
 
-    def Heartbeat(self):
-        self.pongcount += 1
+    def heart_beat(self):
+        self.pong_count += 1
         pong = bytearray([129, 3]) + b"2::"
         # pong = bytearray([1,3])+bytes("2::") # Produces more reconnects
         self.transport.write(bytes(pong))
 
-    def ParseHTTP(self, line):
+    def parse_http(self, line):
         """Processes the response to the GET Request and create the UPGRADE Request"""
         nonce, t1, t2, options = line.split(":")
         if "websocket" in options:
@@ -88,7 +88,7 @@ mode (rawDataReceived)."""
                 self.sendLine(data.encode('utf8'))
                 self.state = 1
 
-    def eatUpHTTP(self, line):
+    def eat_up_http(self, line):
         if self.http_pos == "head":
             if line == "":
                 self.http_pos = "length"
@@ -97,7 +97,7 @@ mode (rawDataReceived)."""
             self.http_pos = "content"
         elif self.http_pos == "content":
             if line != "":
-                self.ParseHTTP(line)
+                self.parse_http(line)
                 self.http_length -= len(line)
                 if self.http_length <= 0:
                     self.http_pos = "tail"
@@ -129,17 +129,17 @@ mode (rawDataReceived)."""
                 print(data)
             elif data[b] == 48:
                 self.pingcount += 1
-                self.ProcessPing(data[b:])
+                self.process_ping(data[b:])
 
             elif data[b] == 53:
-                self.onPacketReceived(data[b:].decode("utf8"), l - b, t)
+                self.on_packet_received(data[b:].decode("utf8"), l - b, t)
             else:
                 print("Unknown op-code", data)
-            reactor.callLater(25, self.Heartbeat)
+            reactor.callLater(25, self.heart_beat)
         else:
             print("Unknown state", self.state)
 
-    def ProcessPing(self, data):
+    def process_ping(self, data):
         since = 0
         now = time()
         if self.lastpingat != 0:
@@ -160,9 +160,9 @@ mode (rawDataReceived)."""
                 self.state = 1
             else:
                 self.http_pos = ""
-                self.Terminate([code, phrase])
+                self.terminate([code, phrase])
         elif self.state == 0:
-            self.eatUpHTTP(line)
+            self.eat_up_http(line)
         elif self.state == 1:
             if "Sec-WebSocket-Accept:" in line:
                 key_got = line.split(" ")[1]
@@ -173,10 +173,10 @@ mode (rawDataReceived)."""
                     print("WS 0.9 connection accepted")
                     self.state = 2
                 else:
-                    self.Terminate(["key mismatch", key_got, key_accept])
+                    self.terminate(["key mismatch", key_got, key_accept])
             elif "Upgrade:" in line:
                 if line.split(" ")[1] != "websocket":
-                    self.Terminate(["Upgrade to websocket failed", line])
+                    self.terminate(["Upgrade to websocket failed", line])
         elif self.state == 2:
             if line == "":  # Wait for the packet to end
                 self.setRawMode()
@@ -186,10 +186,10 @@ mode (rawDataReceived)."""
             print("unexpected:", line)
 
     #
-    def Terminate(self, reason):
+    def terminate(self, reason):
         print("Terminate", reason)
 
-    def onPacketReceived(self, data, length, t):
+    def on_packet_received(self, data, length, t):
         """ Dummy, implement Your own websocket-packet-processing"""
         print("Packet", length, data)
 
@@ -201,15 +201,15 @@ class WSjsonBitcoinDEProtocol(ClientIo0916Protocol):
     """ Processes the Content of the Websocket packet treating it as JSON and pass the dict to an onEvent-function
     mimicking the original js behaviour"""
 
-    def onPacketReceived(self, data, length, t):
+    def on_packet_received(self, data, length, t):
         i = 1
         while data[i] == ":":
             i += 1
         jdata = loads(data[i:])  # json.loads
         otype, args = jdata["name"], jdata["args"][0]
-        self.factory.onEvent(otype, args, t)
+        self.factory.on_event(otype, args, t)
 
-    def Terminate(self, reason):
+    def terminate(self, reason):
         print("WSjson Terminate", reason)
 
     def connectionLost(self, reason):
@@ -231,9 +231,9 @@ class ClientIo2011Protocol(basic.LineReceiver):
         self.nextlen = 0
 
         self.setLineMode()
-        self.sendInit()
+        self.send_init()
 
-    def sendInit(self):
+    def send_init(self):
         cookie = self.header[-1].get("cookie", "")
         data = ""
         if len(cookie) > 0:
@@ -245,9 +245,9 @@ class ClientIo2011Protocol(basic.LineReceiver):
         if len(line) > 3:
             self.header[-1]["lines"].append(line)
         else:
-            self.onHTTPHeader()
+            self.on_http_header()
 
-    def onHTTPHeader(self):
+    def on_http_header(self):
         upgrade = False
         header = self.header[-1]
         code = ""
@@ -274,17 +274,17 @@ class ClientIo2011Protocol(basic.LineReceiver):
 
         if code == "200":
             if not upgrade:
-                self.sendInit()
+                self.send_init()
             else:
-                self.sendUpgrade()
+                self.send_upgrade()
         elif code == "101":
-            self.checkWebsocket()
+            self.check_websocket()
         else:
             print(code, header)
 
         self.header.append({"lines": []})
 
-    def sendUpgrade(self):
+    def send_upgrade(self):
         key = b64encode(urandom(16))
         self.websocket_key = key
         data = "GET /socket.io/1/?EIO=%d&transport=websocket&t=%d-2%s HTTP/1.1\r\n" % (
@@ -295,15 +295,15 @@ class ClientIo2011Protocol(basic.LineReceiver):
         data += "Pragma: no-cache\r\nCache-Control: no-cache\r\n"
         self.sendLine(data.encode('utf8'))
 
-    def checkWebsocket(self):
+    def check_websocket(self):
         key_got = self.header[-1].get("Key", "")
         mysha1 = sha1()
         mysha1.update(self.websocket_key + self._MAGIC)
         key_accept = b64encode(mysha1.digest()).decode('utf8')
         if key_got == key_accept:
             self.setRawMode()
-            reactor.callLater(3, self.sendPing)
-            reactor.callLater(2, self.requestMarket)
+            reactor.callLater(3, self.send_ping)
+            reactor.callLater(2, self.request_market)
             print("WS 2.0 connection accepted")
 
     def rawDataReceived(self, data):
@@ -317,14 +317,14 @@ class ClientIo2011Protocol(basic.LineReceiver):
             if len(sd) >= 2:
                 # len(data),self.nextlen	# socket.io does weird things with it's length==4 packets...
                 content = (sd[1]).decode('utf8')
-                self.onPacketReceived(content, len(content), t)
+                self.on_packet_received(content, len(content), t)
 
                 self.nextlen = 0
         elif len(data) == 4:
             self.nextlen = unpack('!H', data[2:4])[0]
         elif len(data) == 3:
             if data[1] == 1 and data[2] == 51:
-                reactor.callLater(self.pingInterval, self.sendPing)
+                reactor.callLater(self.pingInterval, self.send_ping)
                 self.nextlen = 0
             else:
                 self.nextlen = 0
@@ -333,22 +333,22 @@ class ClientIo2011Protocol(basic.LineReceiver):
             self.nextlen = 0
             print("Unknown", data)
 
-    def sendPing(self):
+    def send_ping(self):
         self.pingcount += 1
         # print "Send Ping"
         ping = bytearray([129, 1]) + bytes("2".encode('utf8'))
         self.transport.write(bytes(ping))
 
-    def requestMarket(self):
+    def request_market(self):
         sd = b"40/market,"
         # print "Send RequestMarket"
         sp = bytearray([129, len(sd)]) + bytes(sd)
         self.transport.write(bytes(sp))
 
-    def Terminate(self, reason):
+    def terminate(self, reason):
         print("Terminate", reason)
 
-    def onPacketReceived(self, data, length, t):
+    def on_packet_received(self, data, length, t):
         """ Dummy, implement Your own websocket-packet-processing"""
         print("Packet", length, data)
 
@@ -360,12 +360,12 @@ class WSjsonBitcoinDEProtocol2(ClientIo2011Protocol):
     """ Processes the Content of the Websocket packet treating it as JSON and pass the dict to an onEvent-function
     mimicking the original js behaviour"""
 
-    def onPacketReceived(self, data, length, t):
+    def on_packet_received(self, data, length, t):
         di = data.index(',')
         evt, args = data[2:di - 1], loads(data[di + 1:-1])
-        self.factory.onEvent(evt, args, t)
+        self.factory.on_event(evt, args, t)
 
-    def Terminate(self, reason):
+    def terminate(self, reason):
         print("WSjson Terminate", reason)
 
     def connectionLost(self, reason):
@@ -383,8 +383,8 @@ class MultiSource(Factory):
     def __str__(self):
         return "WSSource%d %s" % (self.sid, self.WSversion)
 
-    def onEvent(self, evt, data, t):
-        self.receiver.ReceiveEvent(evt, data, self.sid, t)
+    def on_event(self, evt, data, t):
+        self.receiver.receive_event(evt, data, self.sid, t)
 
 
 class BitcoinWSSourceV09(MultiSource):
@@ -397,14 +397,14 @@ class BitcoinWSSourceV09(MultiSource):
     def startFactory(self):
         print("%s started" % (self))
 
-    def startedConnecting(self, connector):
+    def started_connecting(self, connector):
         print("%s connected %d" % (self, connector))
 
     def Lost(self):
         print("\t%s client called lost" % self)
 
-    def connectionLost(self, connector, reason):
-        print("\t%s connectionList" % self, connector, reason)
+    def connection_lost(self, connector, reason):
+        print("\t%s connection_lost" % self, connector, reason)
 
 
 class BitcoinWSSourceV20(BitcoinWSSourceV09):
@@ -422,13 +422,13 @@ class Event(object):
         self.sources = []
         self.eventData = {}
 
-    def AddSource(self, at, src):
+    def add_source(self, at, src):
         self.sources.append((at, src,))
 
-    def AddData(self, data):
+    def add_data(self, data):
         self.eventData = data
 
-    def Since(self):
+    def since(self):
         if len(self.sources) == 0:
             return 0, 0, ""
         else:
@@ -446,18 +446,18 @@ class bitcoinWSeventstream(object):
 
     def __init__(self, stream, interval=60):
         self.stream = stream
-        self.checktask = task.LoopingCall(self.Cleanup)
+        self.checktask = task.LoopingCall(self.clean_up)
         self.interval = interval  # Remove old Events from stream
         self.checktask.start(self.interval, False)
         self.events = {}
 
-    def Cleanup(self):
+    def clean_up(self):
         """Periodically removes old events from stream"""
         now = time()
         events = {}
         n, m, dt, ll, srcl = 0, 0, [1000, 0, 0], {}, {}
         for k, v in self.events.items():
-            s, d, srcs = v.Since()
+            s, d, srcs = v.since()
             if s >= now - self.interval:
                 events[k] = v
                 n += 1
@@ -479,17 +479,17 @@ class bitcoinWSeventstream(object):
         self.events = events
         print("Cleanup", self.stream, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
 
-    def ProcessEvent(self, data, src, t):
+    def process_event(self, data, src, t):
         eventID = self.GenerateID(data)
 
         is_new = False
         evt = self.events.get(eventID, None)
         if evt is None:
             evt = Event(eventID, self.stream)
-            evt.AddData(self.RetrieveData(data))
+            evt.add_data(self.RetrieveData(data))
             self.events[eventID] = evt
             is_new = True
-        evt.AddSource(t, src)
+        evt.add_source(t, src)
 
         if is_new:
             return evt
@@ -504,7 +504,8 @@ class bitcoinWSremoveOrder(bitcoinWSeventstream):
     def __init__(self):
         super(bitcoinWSremoveOrder, self).__init__("rm")
 
-    def GenerateID(self, data):
+    @staticmethod
+    def generate_id(data):
         return data['id']
 
 
@@ -517,7 +518,8 @@ class Countrys(object):
     def decode(self, u):
         pass
 
-    def encode(self, codes):
+    @staticmethod
+    def encode(codes):
         i, j = 0, 0
 
 
@@ -548,7 +550,8 @@ class bitcoinWSaddOrder(bitcoinWSeventstream):
         self.trans["trade_to_sepa_country"] = ("country", lambda x: x)
         self.trans["fidor_account"] = ("fidor", lambda x: int(x))
 
-    def GenerateID(self, data):
+    @staticmethod
+    def generate_id(data):
         return data['id']
 
     #	{u'price_it': u'\u20ac\xa0125,11', u'uid': u'0yybQZ6LpA0ifFWJrsg.', u'country_payment_method_es': u'Alemania', u'min_amount_es': u'0,487571', u'seat_of_bank_of_creator': u'de', u'min_amount_en': u'0.487571', u'country_payment_method_en': u'Germany', u'min_amount_it': u'0,487571', u'id': u'40965708', u'price_es': u'\u20ac\xa0125,11', u'price_formatted_fr': u'125,11\xa0', u'bic_short': u'0yzjPeTwlzkig1B-', u'min_amount_de': u'0,487571', u'volume_fr': u'62,56\xa0\u20ac', u'trading_pair': u'bcheur', u'amount_de': u'0,5', u'amount_it': u'0,5', u'trade_to_sepa_country': u'["DE","AT","CH","BE","GR","MT","SI","BG","IE","NL","SK","DK","IT","ES","HR","PL","CZ","EE","LV","PT","HU","FI","LT","RO","GB","FR","LU","SE","CY","IS","LI","NO","MQ"]', u'volume_de': u'62,56\xa0\u20ac', u'amount_fr': u'0,5', u'country_payment_method_it': u'Germania', u'country_payment_method_de': u'Deutschland', u'type': u'order', u'price_formatted_de': u'125,11\xa0', u'price_en': u'\u20ac125.11', u'payment_option': u'1', u'is_trade_by_fidor_reservation_allowed': u'1', u'bic_full': u'0yzjPeTw33DssfxIB4io2Mow-w..', u'volume_it': u'\u20ac\xa062,56', u'order_id': u'QN933Q', u'price': u'125.11', u'price_formatted_it': u'\xa0125,11', u'min_amount': u'0.487571', u'is_shorting_allowed': u'0', u'volume': u'62.555', u'min_amount_fr': u'0,487571', u'order_type': u'buy', u'is_kyc_full': u'1', u'is_shorting': u'0', u'amount_en': u'0.5', u'is_trade_by_sepa_allowed': u'0', u'fidor_account': u'0', u'price_fr': u'125,11\xa0\u20ac', u'price_formatted_es': u'\xa0125,11', u'volume_es': u'\u20ac\xa062,56', u'min_trust_level': u'bronze', u'volume_en': u'\u20ac62.56', u'amount': u'0.5', u'country_payment_method_fr': u'Allemagne', u'price_formatted_en': u'125.11', u'price_de': u'125,11\xa0\u20ac', u'only_kyc_full': u'1', u'amount_es': u'0,5'}
@@ -573,7 +576,8 @@ class bitcoinWSskn(bitcoinWSeventstream):
     def __init__(self):
         super(bitcoinWSskn, self).__init__("skn")
 
-    def GenerateID(self, data):
+    @staticmethod
+    def generate_id(data):
         return data['uid']
 
 
@@ -581,7 +585,8 @@ class bitcoinWSspr(bitcoinWSeventstream):
     def __init__(self):
         super(bitcoinWSspr, self).__init__("spr")
 
-    def GenerateID(self, data):
+    @staticmethod
+    def generate_id(data):
         return data['uid']
 
 
@@ -589,7 +594,8 @@ class bitcoinWSrpo(bitcoinWSeventstream):
     def __init__(self):
         super(bitcoinWSrpo, self).__init__("po")
 
-    def GenerateID(self, data):
+    @staticmethod
+    def generate_id(data):
         h, j = 0, 1
         for k, v in data.items():
             m = (int(v.get("is_trade_by_fidor_reservation_allowed", "0")) * 2 - 1)
@@ -637,45 +643,45 @@ class BitcoinWSmulti(object):
                 self.connService[sid] = client_service
                 client_service.startService()
 
-    def ReceiveEvent(self, evt, data, src, t):
-        # Called by source, dispatches to event Stream
+    def receive_event(self, evt, data, src, t):
+        # Called by source, dispatches to event stream
         t2 = time()
         stream = self.streams.get(evt, None)
         evt = None
         if stream is not None:
-            evt = stream.ProcessEvent(data, src, t)
+            evt = stream.process_event(data, src, t)
         else:
             print("no Event stream for", src, evt, data, t2 - t)
 
         if evt is not None:
-            self.Deliver(evt)
+            self.deliver(evt)
 
-    def Deliver(self, evt):
+    def deliver(self, evt):
         print(evt)
 
-    def Stats(self):
+    def stats(self):
         pass
 
 
 class BitcoinDESubscribe(BitcoinWSmulti):
     funcs = {"add": [], "rm": [], "po": [], "skn": [], "spr": []}
 
-    def Deliver(self, evt):
+    def deliver(self, evt):
         tpy = evt.eventType
         for f in self.funcs[tpy]:
             f(evt)
 
-    def SubscribeAdd(self, func):
+    def subscribe_add(self, func):
         self.funcs["add"].append(func)
 
-    def SubscribeRemove(self, func):
+    def subscribe_remove(self, func):
         self.funcs["rm"].append(func)
 
-    def SubscribeManagement(self, func):
+    def subscribe_management(self, func):
         self.funcs["skn"].append(func)
         self.funcs["spr"].append(func)
 
-    def SubscribeUpdate(self, func):
+    def subscribe_update(self, func):
         self.funcs["po"].append(func)
 
 
