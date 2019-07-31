@@ -19,7 +19,7 @@
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
@@ -56,9 +56,9 @@ mode (rawDataReceived)."""
         self.http_length = 0
 
         self.pong_count = 0
-        self.pingcount = 0
-        self.lastpingat = 0
-        self.pinginterval = 0
+        self.ping_count = 0
+        self.last_ping_at = 0
+        self.ping_interval = 0
 
         self.setLineMode()  # for the http part, process the packet line-wise
         data = "GET /socket.io/1/?t=%d HTTP/1.1\n" % (time() * 1000)
@@ -115,24 +115,24 @@ mode (rawDataReceived)."""
             self.state = 3
         elif self.state == 3:
             # Calculate the length
-            l, b = data[1] & 0b1111111, 2  # Handle the length field
+            length, b = data[1] & 0b1111111, 2  # Handle the length field
 
-            if l == 126:
+            if length == 126:
                 b = 4
-                l = unpack('!H', data[2:4])[0]  # struct.unpack
-            elif l == 127:
+                length = unpack('!H', data[2:4])[0]  # struct.unpack
+            elif length == 127:
                 b = 10
-                l = unpack('!Q', data[2:10])[0]
+                length = unpack('!Q', data[2:10])[0]
             # Different Opcodes
 
             if data[b] == 47:
                 print(data)
             elif data[b] == 48:
-                self.pingcount += 1
+                self.ping_count += 1
                 self.process_ping(data[b:])
 
             elif data[b] == 53:
-                self.on_packet_received(data[b:].decode("utf8"), l - b, t)
+                self.on_packet_received(data[b:].decode("utf8"), length - b, t)
             else:
                 print("Unknown op-code", data)
             reactor.callLater(25, self.heart_beat)
@@ -140,13 +140,12 @@ mode (rawDataReceived)."""
             print("Unknown state", self.state)
 
     def process_ping(self, data):
-        since = 0
         now = time()
-        if self.lastpingat != 0:
-            since = now - self.lastpingat
-            self.pinginterval = since
-        self.lastpingat = now
-    # print "---> ping",self.pingcount,"%0.2f"%since,"\t",data
+        if self.last_ping_at != 0:
+            since = now - self.last_ping_at
+            self.ping_interval = since
+        self.last_ping_at = now
+    # print "---> ping",self.ping_count,"%0.2f"%since,"\t",data
 
     def lineReceived(self, line):
         """Parse the http Packet (line-wise) and switch states accordingly"""
@@ -166,9 +165,9 @@ mode (rawDataReceived)."""
         elif self.state == 1:
             if "Sec-WebSocket-Accept:" in line:
                 key_got = line.split(" ")[1]
-                mysha1 = sha1()
-                mysha1.update(self.websocket_key.encode('utf8') + self._MAGIC)
-                key_accept = b64encode(mysha1.digest()).decode('utf8')
+                hash_algorithm = sha1()
+                hash_algorithm.update(self.websocket_key.encode('utf8') + self._MAGIC)
+                key_accept = b64encode(hash_algorithm.digest()).decode('utf8')
                 if key_got == key_accept:
                     print("WS 0.9 connection accepted")
                     self.state = 2
@@ -187,17 +186,17 @@ mode (rawDataReceived)."""
 
     #
     def terminate(self, reason):
-        print("Terminate", reason)
+        print("ClientIo0916Protocol.terminate", reason)
 
     def on_packet_received(self, data, length, t):
         """ Dummy, implement Your own websocket-packet-processing"""
-        print("Packet", length, data)
+        print("ClientIo0916Protocol.on_packet_received", length, data)
 
     def connectionLost(self, reason):
-        print("WSconnectionLost", reason)
+        print("ClientIo0916Protocol.connectionLost", reason)
 
 
-class WSjsonBitcoinDEProtocol(ClientIo0916Protocol):
+class WebSocketJsonBitcoinDEProtocol(ClientIo0916Protocol):
     """ Processes the Content of the Websocket packet treating it as JSON and pass the dict to an onEvent-function
     mimicking the original js behaviour"""
 
@@ -205,15 +204,15 @@ class WSjsonBitcoinDEProtocol(ClientIo0916Protocol):
         i = 1
         while data[i] == ":":
             i += 1
-        jdata = loads(data[i:])  # json.loads
-        otype, args = jdata["name"], jdata["args"][0]
-        self.factory.on_event(otype, args, t)
+        json_data = loads(data[i:])  # json.loads
+        evt, args = json_data["name"], json_data["args"][0]
+        self.factory.on_event(evt, args, t)
 
     def terminate(self, reason):
-        print("WSjson Terminate", reason)
+        print("WebSocketJsonBitcoinDEProtocol.terminate(%s)", reason)
 
     def connectionLost(self, reason):
-        print("WSjson connectionLost", reason)
+        print("WebSocketJsonBitcoinDEProtocol.connectionLost", reason)
 
 
 # * * * * * * * * * * * socket.io > 2.0 Implementation * * * * * * * * * * * #
@@ -227,15 +226,14 @@ class ClientIo2011Protocol(basic.LineReceiver):
         self.eio = 3
 
         self.pingInterval = 20
-        self.pingcount = 0
-        self.nextlen = 0
+        self.ping_count = 0
+        self.next_len = 0
 
         self.setLineMode()
         self.send_init()
 
     def send_init(self):
         cookie = self.header[-1].get("cookie", "")
-        data = ""
         if len(cookie) > 0:
             cookie = "&io=" + cookie
         data = "GET /socket.io/1/?EIO=%d%s&t=%d-0&transport=polling HTTP/1.1\r\n" % (self.eio, cookie, self.nonce)
@@ -288,7 +286,7 @@ class ClientIo2011Protocol(basic.LineReceiver):
         key = b64encode(urandom(16))
         self.websocket_key = key
         data = "GET /socket.io/1/?EIO=%d&transport=websocket&t=%d-2%s HTTP/1.1\r\n" % (
-        self.eio, time() * 1000, self.header[-1].get("cookie", ""))
+            self.eio, time() * 1000, self.header[-1].get("cookie", ""))
         data += "Connection: Upgrade\r\nUpgrade: Websocket\r\n"
         data += "Sec-WebSocket-Key: %s\r\n" % (self.websocket_key.decode('utf8'))
         data += "Sec-WebSocket-Version: 13\r\n"
@@ -297,9 +295,9 @@ class ClientIo2011Protocol(basic.LineReceiver):
 
     def check_websocket(self):
         key_got = self.header[-1].get("Key", "")
-        mysha1 = sha1()
-        mysha1.update(self.websocket_key + self._MAGIC)
-        key_accept = b64encode(mysha1.digest()).decode('utf8')
+        hash_algorithm = sha1()
+        hash_algorithm.update(self.websocket_key + self._MAGIC)
+        key_accept = b64encode(hash_algorithm.digest()).decode('utf8')
         if key_got == key_accept:
             self.setRawMode()
             reactor.callLater(3, self.send_ping)
@@ -312,29 +310,29 @@ class ClientIo2011Protocol(basic.LineReceiver):
 
         t = time()
         if len(data) > 4:
-            # print self.nextlen,map(ord,data[:8]),data[:20],data[-20:]
+            # print self.next_len,map(ord,data[:8]),data[:20],data[-20:]
             sd = data.split("42/market,".encode('utf8'))
             if len(sd) >= 2:
-                # len(data),self.nextlen	# socket.io does weird things with it's length==4 packets...
+                # len(data),self.next_len	# socket.io does weird things with it's length==4 packets...
                 content = (sd[1]).decode('utf8')
                 self.on_packet_received(content, len(content), t)
 
-                self.nextlen = 0
+                self.next_len = 0
         elif len(data) == 4:
-            self.nextlen = unpack('!H', data[2:4])[0]
+            self.next_len = unpack('!H', data[2:4])[0]
         elif len(data) == 3:
             if data[1] == 1 and data[2] == 51:
                 reactor.callLater(self.pingInterval, self.send_ping)
-                self.nextlen = 0
+                self.next_len = 0
             else:
-                self.nextlen = 0
+                self.next_len = 0
                 print("short unknown")
         else:
-            self.nextlen = 0
+            self.next_len = 0
             print("Unknown", data)
 
     def send_ping(self):
-        self.pingcount += 1
+        self.ping_count += 1
         # print "Send Ping"
         ping = bytearray([129, 1]) + bytes("2".encode('utf8'))
         self.transport.write(bytes(ping))
@@ -353,10 +351,10 @@ class ClientIo2011Protocol(basic.LineReceiver):
         print("Packet", length, data)
 
     def connectionLost(self, reason):
-        print("WSconnectionLost", reason)
+        print("connectionLost", reason)
 
 
-class WSjsonBitcoinDEProtocol2(ClientIo2011Protocol):
+class WebSocketJsonBitcoinDEProtocol2(ClientIo2011Protocol):
     """ Processes the Content of the Websocket packet treating it as JSON and pass the dict to an onEvent-function
     mimicking the original js behaviour"""
 
@@ -366,10 +364,10 @@ class WSjsonBitcoinDEProtocol2(ClientIo2011Protocol):
         self.factory.on_event(evt, args, t)
 
     def terminate(self, reason):
-        print("WSjson Terminate", reason)
+        print("WebSocketJsonBitcoinDEProtocol2.terminate", reason)
 
     def connectionLost(self, reason):
-        print("WSjson connectionLost", reason)
+        print("WebSocketJsonBitcoinDEProtocol2.connectionLost", reason)
 
 
 # * * * * * * * * * * * MultiSource Factories * * * * * * * * * * * #
@@ -388,19 +386,19 @@ class MultiSource(Factory):
 
 
 class BitcoinWSSourceV09(MultiSource):
-    protocol = WSjsonBitcoinDEProtocol
-    WSversion = "09"
+    protocol = WebSocketJsonBitcoinDEProtocol
+    WebSocketApiVersion = "09"
 
     def __str__(self):
-        return "WSSource%d %s" % (self.sid, self.WSversion)
+        return "WSSource%d %s" % (self.sid, self.WebSocketApiVersion)
 
     def startFactory(self):
-        print("%s started" % (self))
+        print("%s started" % self)
 
     def started_connecting(self, connector):
         print("%s connected %d" % (self, connector))
 
-    def Lost(self):
+    def lost(self):
         print("\t%s client called lost" % self)
 
     def connection_lost(self, connector, reason):
@@ -408,16 +406,16 @@ class BitcoinWSSourceV09(MultiSource):
 
 
 class BitcoinWSSourceV20(BitcoinWSSourceV09):
-    protocol = WSjsonBitcoinDEProtocol2
-    WSversion = "20"
+    protocol = WebSocketJsonBitcoinDEProtocol2
+    WebSocketApiVersion = "20"
 
 
 # * * * * * * * * * * MultiSource Implementation * * * * * * * * * * #
 
 class Event(object):
-    def __init__(self, eventID, eventType):
-        self.eventID = eventID
-        self.eventType = eventType
+    def __init__(self, event_id, event_type):
+        self.eventID = event_id
+        self.eventType = event_type
 
         self.sources = []
         self.eventData = {}
@@ -440,7 +438,7 @@ class Event(object):
         return "Event %s %s %s" % (self.eventType, self.eventID, self.eventData)
 
 
-class bitcoinWSeventstream(object):
+class BitcoinWebSocketEventStream(object):
     """Handles an event stream, for example 'add'-Events. ProcessEvent only forwards the first occurrence of an event
     from one of the sources. Already received events get timestamped-data via AddSource"""
 
@@ -467,9 +465,9 @@ class bitcoinWSeventstream(object):
                 dt[1] += d
                 dt[2] = max(dt[2], d)
 
-                src, l = srcs[0], len(srcs)
+                src, length = srcs[0], len(srcs)
                 srcl[src] = srcl.get(src, 0) + 1
-                ll[l] = ll.get(l, 0) + 1
+                ll[length] = ll.get(length, 0) + 1
 
         if m > 0:
             dt[1] = dt[1] / (1. * m)
@@ -480,14 +478,14 @@ class bitcoinWSeventstream(object):
         print("Cleanup", self.stream, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
 
     def process_event(self, data, src, t):
-        eventID = self.GenerateID(data)
+        event_id = self.GenerateID(data)
 
         is_new = False
-        evt = self.events.get(eventID, None)
+        evt = self.events.get(event_id, None)
         if evt is None:
-            evt = Event(eventID, self.stream)
-            evt.add_data(self.RetrieveData(data))
-            self.events[eventID] = evt
+            evt = Event(event_id, self.stream)
+            evt.add_data(self.retrieve_data(data))
+            self.events[event_id] = evt
             is_new = True
         evt.add_source(t, src)
 
@@ -496,20 +494,20 @@ class bitcoinWSeventstream(object):
         else:
             return None
 
-    def RetrieveData(self, data):
+    def retrieve_data(self, data):
         return data
 
 
-class bitcoinWSremoveOrder(bitcoinWSeventstream):
+class BitcoinWebSocketRemoveOrder(BitcoinWebSocketEventStream):
     def __init__(self):
-        super(bitcoinWSremoveOrder, self).__init__("rm")
+        super(BitcoinWebSocketRemoveOrder, self).__init__("rm")
 
     @staticmethod
     def generate_id(data):
         return data['id']
 
 
-class Countrys(object):
+class Countries(object):
     def __init__(self):
         self.codes = ["DE", "AT", "CH", "BE", "GR", "MT", "SI", "BG", "IE", "NL", "SK", "DK", "IT", "ES", "HR", "PL",
                       "CZ", "EE", "LV", "PT", "HU", "FI", "LT", "RO", "GB", "FR", "LU", "SE", "CY", "IS", "LI", "NO",
@@ -523,40 +521,39 @@ class Countrys(object):
         i, j = 0, 0
 
 
-class bitcoinWSaddOrder(bitcoinWSeventstream):
+class BitcoinWebSocketAddOrder(BitcoinWebSocketEventStream):
     def __init__(self):
-        super(bitcoinWSaddOrder, self).__init__("add")
+        super(BitcoinWebSocketAddOrder, self).__init__("add")
 
-        self.countries = Countrys()
+        self.countries = Countries()
 
-        self.trans = {}
-        self.trans["uid"] = ("uid", lambda x: x)
-        self.trans["order_id"] = ("oid", lambda x: x)
-        self.trans["id"] = ("DEid", lambda x: int(x))
-        self.trans["price"] = ("price", lambda x: int(float(x) * 100))
-        self.trans["trading_pair"] = ("pair", lambda x: x)
-        self.trans["bic_full"] = ("cBIC", lambda x: x)
-        self.trans["only_kyc_full"] = ("rkyc", lambda x: int(x))
-        self.trans["is_kyc_full"] = ("ukyc", lambda x: int(x))
-        self.trans["amount"] = ("amt", lambda x: float(x))
-        self.trans["min_amount"] = ("mamt", lambda x: float(x))
-        self.trans["order_type"] = ("type", lambda x: x)
-        self.trans["order"] = ("order", lambda x: x)
+        self.trans = {"uid": ("uid", lambda x: x),
+                      "order_id": ("oid", lambda x: x),
+                      "id": ("DEid", lambda x: int(x)),
+                      "price": ("price", lambda x: int(float(x) * 100)),
+                      "trading_pair": ("pair", lambda x: x),
+                      "bic_full": ("cBIC", lambda x: x),
+                      "only_kyc_full": ("rkyc", lambda x: int(x)),
+                      "is_kyc_full": ("ukyc", lambda x: int(x)),
+                      "amount": ("amt", lambda x: float(x)),
+                      "min_amount": ("mamt", lambda x: float(x)),
+                      "order_type": ("type", lambda x: x),
+                      "order": ("order", lambda x: x),
+                      "min_trust_level": ("trust", lambda x: {"bronze": 1,
+                                                              "silver": 2,
+                                                              "gold": 3,
+                                                              "platinum": 4}.get(x, 0),),
+                      "seat_of_bank_of_creator": ("seat", lambda x: x),
+                      "trade_to_sepa_country": ("country", lambda x: x),
+                      "fidor_account": ("fidor", lambda x: int(x))}
         # self.trans["is_shorting"]
         # self.trans["is_shorting_allowed"]
-        self.trans["min_trust_level"] = (
-        "trust", lambda x: {"bronze": 1, "silver": 2, "gold": 3, "platinum": 4}.get(x, 0),)
-        self.trans["seat_of_bank_of_creator"] = ("seat", lambda x: x)
-        self.trans["trade_to_sepa_country"] = ("country", lambda x: x)
-        self.trans["fidor_account"] = ("fidor", lambda x: int(x))
 
     @staticmethod
     def generate_id(data):
         return data['id']
 
-    #	{u'price_it': u'\u20ac\xa0125,11', u'uid': u'0yybQZ6LpA0ifFWJrsg.', u'country_payment_method_es': u'Alemania', u'min_amount_es': u'0,487571', u'seat_of_bank_of_creator': u'de', u'min_amount_en': u'0.487571', u'country_payment_method_en': u'Germany', u'min_amount_it': u'0,487571', u'id': u'40965708', u'price_es': u'\u20ac\xa0125,11', u'price_formatted_fr': u'125,11\xa0', u'bic_short': u'0yzjPeTwlzkig1B-', u'min_amount_de': u'0,487571', u'volume_fr': u'62,56\xa0\u20ac', u'trading_pair': u'bcheur', u'amount_de': u'0,5', u'amount_it': u'0,5', u'trade_to_sepa_country': u'["DE","AT","CH","BE","GR","MT","SI","BG","IE","NL","SK","DK","IT","ES","HR","PL","CZ","EE","LV","PT","HU","FI","LT","RO","GB","FR","LU","SE","CY","IS","LI","NO","MQ"]', u'volume_de': u'62,56\xa0\u20ac', u'amount_fr': u'0,5', u'country_payment_method_it': u'Germania', u'country_payment_method_de': u'Deutschland', u'type': u'order', u'price_formatted_de': u'125,11\xa0', u'price_en': u'\u20ac125.11', u'payment_option': u'1', u'is_trade_by_fidor_reservation_allowed': u'1', u'bic_full': u'0yzjPeTw33DssfxIB4io2Mow-w..', u'volume_it': u'\u20ac\xa062,56', u'order_id': u'QN933Q', u'price': u'125.11', u'price_formatted_it': u'\xa0125,11', u'min_amount': u'0.487571', u'is_shorting_allowed': u'0', u'volume': u'62.555', u'min_amount_fr': u'0,487571', u'order_type': u'buy', u'is_kyc_full': u'1', u'is_shorting': u'0', u'amount_en': u'0.5', u'is_trade_by_sepa_allowed': u'0', u'fidor_account': u'0', u'price_fr': u'125,11\xa0\u20ac', u'price_formatted_es': u'\xa0125,11', u'volume_es': u'\u20ac\xa062,56', u'min_trust_level': u'bronze', u'volume_en': u'\u20ac62.56', u'amount': u'0.5', u'country_payment_method_fr': u'Allemagne', u'price_formatted_en': u'125.11', u'price_de': u'125,11\xa0\u20ac', u'only_kyc_full': u'1', u'amount_es': u'0,5'}
-
-    def RetrieveData(self, data):
+    def retrieve_data(self, data):
         short = int(data["is_shorting"]) * 2 + int(data["is_shorting_allowed"])
 
         fidor = int(data["is_trade_by_fidor_reservation_allowed"])
@@ -572,27 +569,27 @@ class bitcoinWSaddOrder(bitcoinWSeventstream):
         return r
 
 
-class bitcoinWSskn(bitcoinWSeventstream):
+class BitcoinWebSocketSkn(BitcoinWebSocketEventStream):
     def __init__(self):
-        super(bitcoinWSskn, self).__init__("skn")
+        super(BitcoinWebSocketSkn, self).__init__("skn")
 
     @staticmethod
     def generate_id(data):
         return data['uid']
 
 
-class bitcoinWSspr(bitcoinWSeventstream):
+class BitcoinWebSocketSpr(BitcoinWebSocketEventStream):
     def __init__(self):
-        super(bitcoinWSspr, self).__init__("spr")
+        super(BitcoinWebSocketSpr, self).__init__("spr")
 
     @staticmethod
     def generate_id(data):
         return data['uid']
 
 
-class bitcoinWSrpo(bitcoinWSeventstream):
+class BitcoinWebSocketRpo(BitcoinWebSocketEventStream):
     def __init__(self):
-        super(bitcoinWSrpo, self).__init__("po")
+        super(BitcoinWebSocketRpo, self).__init__("po")
 
     @staticmethod
     def generate_id(data):
@@ -603,7 +600,7 @@ class bitcoinWSrpo(bitcoinWSeventstream):
             j += 1
         return h
 
-    def RetrieveData(self, data):
+    def retrieve_data(self, data):
         pos = {}
         for k, v in data.items():
             fidor = int(v.get("is_trade_by_fidor_reservation_allowed", "0"))
@@ -613,7 +610,7 @@ class bitcoinWSrpo(bitcoinWSeventstream):
         return pos
 
 
-class BitcoinWSmulti(object):
+class BitcoinWebSocketMulti(object):
     """ClientService ensures restart after connection is lost."""
 
     def __init__(self, servers=[1, 2, 3, 4]):
@@ -626,11 +623,11 @@ class BitcoinWSmulti(object):
 
         self.connService = {}
 
-        self.streams = {"remove_order": bitcoinWSremoveOrder(),
-                        "add_order": bitcoinWSaddOrder(),
-                        "skn": bitcoinWSskn(),
-                        "spr": bitcoinWSspr(),
-                        "refresh_express_option": bitcoinWSrpo()}
+        self.streams = {"remove_order": BitcoinWebSocketRemoveOrder(),
+                        "add_order": BitcoinWebSocketAddOrder(),
+                        "skn": BitcoinWebSocketSkn(),
+                        "spr": BitcoinWebSocketSpr(),
+                        "refresh_express_option": BitcoinWebSocketRpo()}
 
         for sid in servers:
             addr, factory_creator, = self.servers.get(sid, (None, None,))
@@ -663,7 +660,7 @@ class BitcoinWSmulti(object):
         pass
 
 
-class BitcoinDESubscribe(BitcoinWSmulti):
+class BitcoinDESubscribe(BitcoinWebSocketMulti):
     funcs = {"add": [], "rm": [], "po": [], "skn": [], "spr": []}
 
     def deliver(self, evt):
@@ -688,13 +685,10 @@ class BitcoinDESubscribe(BitcoinWSmulti):
 # * * * * * * * * * * * * * * main * * * * * * * * * * * * * * #
 
 def main():
-    sources = BitcoinWSmulti()
+    sources = BitcoinWebSocketMulti()
 
     reactor.run()
 
-
-# po often comes before add Event --> po caching
-# Event add 50000000 {'short': 0, 'uid': u'0yybQpgLpTshf1Hhrw..', 'fidor': 0, 'ukyc': 1, 'country': u'["DE","AT","CH","BE","GR","MT","SI","BG","IE","NL","SK","DK","IT","ES","HR","PL","CZ","EE","LV","PT","HU","FI","LT","RO","GB","FR","LU","SE","CY","IS","LI","NO","MQ"]', 'price': 465050, 'oid': u'AZD24R', 'seat': u'de', 'rkyc': 1, 'mamt': 0.012902, 'order': None, 'DEid': 50000000, 'pair': u'btceur', 'trust': 1, 'type': u'sell', 'po': 3, 'amt': 0.12, 'cBIC': u'0yzjuOJz3HDsNGDQnomo2yA3kQ..'}
 
 if __name__ == '__main__':
     main()
