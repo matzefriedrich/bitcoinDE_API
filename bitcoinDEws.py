@@ -49,6 +49,9 @@ After acting as a basic.LineReceiver to process the http GET,UPGRADE part (lineR
 mode (rawDataReceived)."""
     _MAGIC = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"  # Handshake key signing
 
+    def __init__(self):
+        pass
+
     def connectionMade(self):
         """ Called after the factory that was passed this protocol established the connection. """
         self.state = 0  # pseudo state-machine to keep track which phase http-upgrade-websocket the connection is in
@@ -184,7 +187,6 @@ mode (rawDataReceived)."""
         else:
             print("unexpected:", line)
 
-    #
     def terminate(self, reason):
         print("ClientIo0916Protocol.terminate", reason)
 
@@ -449,6 +451,10 @@ class BitcoinWebSocketEventStream(object):
         self.checktask.start(self.interval, False)
         self.events = {}
 
+    """Must be implemented by derived types."""
+    def generate_id(self):
+        pass
+
     def clean_up(self):
         """Periodically removes old events from stream"""
         now = time()
@@ -478,7 +484,7 @@ class BitcoinWebSocketEventStream(object):
         print("Cleanup", self.stream, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
 
     def process_event(self, data, src, t):
-        event_id = self.GenerateID(data)
+        event_id = self.generate_id(data)
 
         is_new = False
         evt = self.events.get(event_id, None)
@@ -502,8 +508,7 @@ class BitcoinWebSocketRemoveOrder(BitcoinWebSocketEventStream):
     def __init__(self):
         super(BitcoinWebSocketRemoveOrder, self).__init__("rm")
 
-    @staticmethod
-    def generate_id(data):
+    def generate_id(self, data):
         return data['id']
 
 
@@ -573,8 +578,7 @@ class BitcoinWebSocketSkn(BitcoinWebSocketEventStream):
     def __init__(self):
         super(BitcoinWebSocketSkn, self).__init__("skn")
 
-    @staticmethod
-    def generate_id(data):
+    def generate_id(self, data):
         return data['uid']
 
 
@@ -591,8 +595,7 @@ class BitcoinWebSocketRpo(BitcoinWebSocketEventStream):
     def __init__(self):
         super(BitcoinWebSocketRpo, self).__init__("po")
 
-    @staticmethod
-    def generate_id(data):
+    def generate_id(self, data):
         h, j = 0, 1
         for k, v in data.items():
             m = (int(v.get("is_trade_by_fidor_reservation_allowed", "0")) * 2 - 1)
@@ -613,7 +616,7 @@ class BitcoinWebSocketRpo(BitcoinWebSocketEventStream):
 class BitcoinWebSocketMulti(object):
     """ClientService ensures restart after connection is lost."""
 
-    def __init__(self, servers=[1, 2, 3, 4]):
+    def __init__(self, servers=[1, 3, 4]):
         self.servers = {1: ("ws", BitcoinWSSourceV09,),
                         2: ("ws1", BitcoinWSSourceV09,),
                         3: ("ws2", BitcoinWSSourceV20,),
