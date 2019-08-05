@@ -14,8 +14,8 @@ class MultiSource(Factory):
     def __str__(self):
         return "MultiSource%d %s" % (self.sid, self.socket_version)
 
-    def on_event(self, evt, data, t):
-        self.receiver.receive_event(evt, data, self.sid, t)
+    def on_event(self, event_type: str, data, t):
+        self.receiver.receive_event(event_type, data, self.sid, t)
 
     def startFactory(self):
         print("%s started" % self)

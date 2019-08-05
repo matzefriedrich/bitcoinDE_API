@@ -73,7 +73,7 @@ class BitcoinWebSocketEventHandler(object):
         self.events = events
         print("Cleanup", self.event_name, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
 
-    def process_event(self, data, src, t):
+    def process_event(self, data, src, t) -> Event:
         event_id = self.generate_id(data)
 
         evt = self.events.get(event_id, None)  # check whether the event has been seen before

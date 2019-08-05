@@ -15,6 +15,7 @@ from bitcoinde.eventhandlers import \
     BitcoinWebSocketSkn, \
     BitcoinWebSocketSpr
 
+from bitcoinde.events import Event, BitcoinWebSocketEventHandler
 from bitcoinde.factories import BitcoinWSSourceV09, BitcoinWSSourceV20
 
 
@@ -31,11 +32,11 @@ class BitcoinWebSocketMulti(object):
 
         self.connService = {}  # a backing field used to store client-services
 
-        self.streams = {"remove_order": BitcoinWebSocketRemoveOrder(),
-                        "add_order": BitcoinWebSocketAddOrder(),
-                        "skn": BitcoinWebSocketSkn(),
-                        "spr": BitcoinWebSocketSpr(),
-                        "refresh_express_option": BitcoinWebSocketRpo()}
+        self.event_handlers = {"remove_order": BitcoinWebSocketRemoveOrder(),
+                               "add_order": BitcoinWebSocketAddOrder(),
+                               "skn": BitcoinWebSocketSkn(),
+                               "spr": BitcoinWebSocketSpr(),
+                               "refresh_express_option": BitcoinWebSocketRpo()}
 
         for sid in servers:
             addr, factory_creator, = self.servers.get(sid, (None, None,))
@@ -48,23 +49,23 @@ class BitcoinWebSocketMulti(object):
                 self.connService[sid] = client_service
                 client_service.startService()
 
-    def receive_event(self, evt, data, src, t):
+    def receive_event(self, event_type: str, data, src, unix_time_seconds: float):
         """Dispatches received events. Finds handler for given event. This method will be called by an
         event-source component."""
-        t2 = time()
-        stream = self.streams.get(evt, None)
-        evt = None
-        if stream is not None:
-            evt = stream.process_event(data, src, t)
+        current_unix_time_seconds: float = time()
+        event_handler: BitcoinWebSocketEventHandler = self.event_handlers.get(event_type, None)
+        event: Event = None
+        if event_handler is not None:
+            event = event_handler.process_event(data, src, unix_time_seconds)
         else:
-            print("no Event stream for", src, evt, data, t2 - t)
+            print("no Event stream for", src, event_type, data, current_unix_time_seconds - unix_time_seconds)
 
-        if evt is not None:
-            self.deliver(evt)
+        if event is not None:
+            self.deliver(event)
 
-    def deliver(self, evt):
+    def deliver(self, event: Event):
         """Obsolete."""
-        print(evt)
+        print(event)
 
     def stats(self):
         pass

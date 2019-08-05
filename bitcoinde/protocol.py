@@ -181,8 +181,8 @@ class WebSocketJsonBitcoinDEProtocol(ClientIo0916Protocol):
         while data[i] == ":":
             i += 1
         json_data = loads(data[i:])  # json.loads
-        evt, args = json_data["name"], json_data["args"][0]
-        self.factory.on_event(evt, args, t)
+        event_type, args = json_data["name"], json_data["args"][0]
+        self.factory.on_event(event_type, args, t)
 
     def terminate(self, reason):
         print("WebSocketJsonBitcoinDEProtocol.terminate(%s)", reason)
