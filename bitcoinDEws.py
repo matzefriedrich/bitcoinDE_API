@@ -29,7 +29,7 @@ class BitcoinWebSocketMulti(object):
 
         self.sources = {}
 
-        self.connService = {}
+        self.connService = {}  # a backing field used to store client-services
 
         self.streams = {"remove_order": BitcoinWebSocketRemoveOrder(),
                         "add_order": BitcoinWebSocketAddOrder(),
@@ -43,13 +43,14 @@ class BitcoinWebSocketMulti(object):
                 context_factory = optionsForClientTLS(u'%s.bitcoin.de' % addr, None)
                 endpoint = endpoints.SSL4ClientEndpoint(reactor, '%s.bitcoin.de' % addr, 443, context_factory)
                 factory = factory_creator(sid, self)
-                self.sources[sid] = factory  # Reference to self is passed here, ReceiveEvent is called by source
+                self.sources[sid] = factory  # Reference to self is passed here, receive_event is called by source
                 client_service = ClientService(endpoint, factory)
                 self.connService[sid] = client_service
                 client_service.startService()
 
     def receive_event(self, evt, data, src, t):
-        # Called by source, dispatches to event stream
+        """Dispatches received events. Finds handler for given event. This method will be called by an
+        event-source component."""
         t2 = time()
         stream = self.streams.get(evt, None)
         evt = None
@@ -62,6 +63,7 @@ class BitcoinWebSocketMulti(object):
             self.deliver(evt)
 
     def deliver(self, evt):
+        """Obsolete."""
         print(evt)
 
     def stats(self):

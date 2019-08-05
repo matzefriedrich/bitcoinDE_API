@@ -1,3 +1,4 @@
+from bitcoinde.countries import Countries
 from bitcoinde.events import BitcoinWebSocketEventHandler
 
 
@@ -7,20 +8,6 @@ class BitcoinWebSocketRemoveOrder(BitcoinWebSocketEventHandler):
 
     def generate_id(self, data):
         return data['id']
-
-
-class Countries(object):
-    def __init__(self):
-        self.codes = ["DE", "AT", "CH", "BE", "GR", "MT", "SI", "BG", "IE", "NL", "SK", "DK", "IT", "ES", "HR", "PL",
-                      "CZ", "EE", "LV", "PT", "HU", "FI", "LT", "RO", "GB", "FR", "LU", "SE", "CY", "IS", "LI", "NO",
-                      "MQ"]
-
-    def decode(self, u):
-        pass
-
-    @staticmethod
-    def encode(codes):
-        i, j = 0, 0
 
 
 class BitcoinWebSocketAddOrder(BitcoinWebSocketEventHandler):
@@ -56,14 +43,16 @@ class BitcoinWebSocketAddOrder(BitcoinWebSocketEventHandler):
         return data['id']
 
     def retrieve_data(self, data):
-        short = int(data["is_shorting"]) * 2 + int(data["is_shorting_allowed"])
+        is_shorting = int(data["is_shorting"])
+        is_shorting_allowed = int(data["is_shorting_allowed"])
+        short = is_shorting * 2 + is_shorting_allowed
 
-        fidor = int(data["is_trade_by_fidor_reservation_allowed"])
-        sepa = int(data["is_trade_by_sepa_allowed"])
-        po = int(data["payment_option"])
-        r = {"po": po, "short": short}
+        is_trade_by_fidor_reservation_allowed = int(data["is_trade_by_fidor_reservation_allowed"])
+        is_trade_by_sepa_allowed = int(data["is_trade_by_sepa_allowed"])
+        payment_option = int(data["payment_option"])
+        r = {"po": payment_option, "short": short}
 
-        print(fidor, sepa, po, short)
+        print(is_trade_by_fidor_reservation_allowed, is_trade_by_sepa_allowed, payment_option, short)
         for k, v in self.trans.items():
             t, f, = v
             r[t] = f(data.get(k))
@@ -95,7 +84,8 @@ class BitcoinWebSocketRpo(BitcoinWebSocketEventHandler):
     def generate_id(self, data):
         h, j = 0, 1
         for k, v in data.items():
-            m = (int(v.get("is_trade_by_fidor_reservation_allowed", "0")) * 2 - 1)
+            is_trade_by_fidor_reservation_allowed = int(v.get("is_trade_by_fidor_reservation_allowed", "0"))
+            m = (is_trade_by_fidor_reservation_allowed * 2 - 1)
             h += int(k) * m * j
             j += 1
         return h
@@ -103,9 +93,9 @@ class BitcoinWebSocketRpo(BitcoinWebSocketEventHandler):
     def retrieve_data(self, data):
         pos = {}
         for k, v in data.items():
-            fidor = int(v.get("is_trade_by_fidor_reservation_allowed", "0"))
-            sepa = int(v.get("u'is_trade_by_sepa_allowed", "0"))
-            po = fidor + sepa * 2
+            is_trade_by_fidor_reservation_allowed = int(v.get("is_trade_by_fidor_reservation_allowed", "0"))
+            is_trade_by_sepa_allowed = int(v.get("u'is_trade_by_sepa_allowed", "0"))
+            po = is_trade_by_fidor_reservation_allowed + is_trade_by_sepa_allowed * 2
             pos[int(k)] = po
         return pos
 
