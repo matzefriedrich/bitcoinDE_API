@@ -7,7 +7,8 @@ RUN apk add --no-cache build-base libffi-dev openssl-dev python3-dev && \
     if [ ! -e /usr/bin/pip ]; then ln -s pip3 /usr/bin/pip ; fi
 RUN pip install twisted && \
     pip install pyOpenSSL && \
-    pip install service_identity
+    pip install service_identity && \
+    pip install msgpack
 COPY bitcoinde/ /app/bitcoinde/
 ADD bitcoinDEws.py /app/
 WORKDIR /app
