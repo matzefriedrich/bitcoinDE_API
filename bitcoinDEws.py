@@ -49,11 +49,15 @@ class BitcoinWebSocketMulti(object):
                 self.connService[sid] = client_service
                 client_service.startService()
 
+    def get_event_handler(self, event_type: str) -> BitcoinWebSocketEventHandler:
+        """Finds a handler for the specified type of event."""
+        return self.event_handlers.get(event_type, None)
+
     def receive_event(self, event_type: str, data, src, unix_time_seconds: float):
         """Dispatches received events. Finds handler for given event. This method will be called by an
         event-source component."""
         current_unix_time_seconds: float = time()
-        event_handler: BitcoinWebSocketEventHandler = self.event_handlers.get(event_type, None)
+        event_handler: BitcoinWebSocketEventHandler = self.get_event_handler(event_type)
         event: Event = None
         if event_handler is not None:
             event = event_handler.process_event(data, src, unix_time_seconds)
