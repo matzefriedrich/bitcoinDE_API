@@ -1,4 +1,5 @@
 FROM alpine:latest
+EXPOSE 5634/tcp
 RUN apk add --no-cache build-base libffi-dev openssl-dev python3-dev && \
     if [ ! -e /usr/bin/python ]; then ln -sf python3 /usr/bin/python ; fi && \
     python3 -m ensurepip && \

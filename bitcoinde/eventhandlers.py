@@ -52,7 +52,7 @@ class BitcoinWebSocketAddOrder(BitcoinWebSocketEventHandler):
         payment_option = int(data["payment_option"])
         r = {"po": payment_option, "short": short}
 
-        print(is_trade_by_fidor_reservation_allowed, is_trade_by_sepa_allowed, payment_option, short)
+        # print(is_trade_by_fidor_reservation_allowed, is_trade_by_sepa_allowed, payment_option, short)
         for k, v in self.trans.items():
             t, f, = v
             r[t] = f(data.get(k))

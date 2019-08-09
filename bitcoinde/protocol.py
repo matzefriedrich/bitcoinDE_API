@@ -103,7 +103,7 @@ mode (rawDataReceived)."""
             # Different Opcodes
 
             if data[b] == 47:
-                print(data)
+                pass  # print(data)
             elif data[b] == 48:
                 self.ping_count += 1
                 self.process_ping(data[b:])
@@ -253,8 +253,8 @@ class ClientIo2011Protocol(basic.LineReceiver):
                 self.send_upgrade()
         elif code == "101":
             self.check_websocket()
-        else:
-            print(code, header)
+        # else:
+        #    print(code, header)
 
         self.header.append({"lines": []})
 
@@ -302,10 +302,10 @@ class ClientIo2011Protocol(basic.LineReceiver):
                 self.next_len = 0
             else:
                 self.next_len = 0
-                print("short unknown")
+                # print("short unknown")
         else:
             self.next_len = 0
-            print("Unknown", data)
+            # print("Unknown", data)
 
     def send_ping(self):
         self.ping_count += 1

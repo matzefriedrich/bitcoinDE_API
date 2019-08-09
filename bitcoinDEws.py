@@ -1,8 +1,9 @@
 #!/usr/bin/env python3.7
 # coding:utf-8
-
+from __future__ import annotations  # enable code compatibility
 from time import time
 
+import zmq
 
 from twisted.internet import endpoints, reactor  # unfortunately reactor is needed in ClientIo0916Protocol
 from twisted.internet.ssl import optionsForClientTLS
@@ -15,7 +16,7 @@ from bitcoinde.eventhandlers import \
     BitcoinWebSocketSkn, \
     BitcoinWebSocketSpr
 
-from bitcoinde.events import Event, BitcoinWebSocketEventHandler
+from bitcoinde.events import Event, BitcoinWebSocketEventHandler, EventSink
 from bitcoinde.factories import BitcoinWSSourceV09, BitcoinWSSourceV20
 
 
@@ -23,6 +24,7 @@ class BitcoinWebSocketMulti(object):
     """ClientService ensures restart after connection is lost."""
 
     def __init__(self, servers=[1, 3, 4]):
+        self.sinks = []  # a list of event sinks
         self.servers = {1: ("ws", BitcoinWSSourceV09,),
                         2: ("ws1", BitcoinWSSourceV09,),
                         3: ("ws2", BitcoinWSSourceV20,),
@@ -67,40 +69,68 @@ class BitcoinWebSocketMulti(object):
         if event is not None:
             self.deliver(event)
 
+    def write_to(self, sink: EventSink) -> BitcoinWebSocketMulti:
+        """Registers the given event sink with the current multi-source instance."""
+        self.sinks.append(sink)
+        return self
+
     def deliver(self, event: Event):
-        """Obsolete."""
-        print(event)
+        """Pushes the given event to all registered sinks."""
+        for sink in self.sinks:  # type: EventSink
+            sink.process_event(event)
 
     def stats(self):
         pass
 
 
-class BitcoinDESubscribe(BitcoinWebSocketMulti):
-    funcs = {"add": [], "rm": [], "po": [], "skn": [], "spr": []}
+class ZeroMqEventProcessingSink(EventSink):
 
-    def deliver(self, evt):
-        tpy = evt.eventType
-        for f in self.funcs[tpy]:
-            f(evt)
+    def __init__(self, port: int):
+        """Initializes a PUSH socket using the given port."""
+        self.port = port
 
-    def subscribe_add(self, func):
-        self.funcs["add"].append(func)
+        self.context = zmq.Context()
 
-    def subscribe_remove(self, func):
-        self.funcs["rm"].append(func)
+        def create_default_pull_socket():
+            self.default_consumer = self.context.socket(zmq.SUB)
+            address = "tcp://127.0.0.1:%s" % port
+            print('Connecting pull-socket to address %s' % address)
+            self.default_consumer.connect(address)
+            self.default_consumer.setsockopt(zmq.SUBSCRIBE, b"")
 
-    def subscribe_management(self, func):
-        self.funcs["skn"].append(func)
-        self.funcs["spr"].append(func)
+            self.consumer_poller = zmq.Poller()
+            self.consumer_poller.register(self.default_consumer, zmq.POLLIN)
+            print("Started default push socket consumer on port: %s" % port)
+            continue_poll = True
+            while continue_poll:
+                events = dict(self.consumer_poller.poll())
+                if self.default_consumer in events and events[self.default_consumer] == zmq.POLLIN:
+                    message = self.default_consumer.recv()
+                    if message == "exit":
+                        continue_poll = False
+                    else:
+                        print("Sub socket received data: %s" % message)
 
-    def subscribe_update(self, func):
-        self.funcs["po"].append(func)
+        def create_pub_socket():
+            self.socket = self.context.socket(zmq.PUB)
+            address = 'tcp://127.0.0.1:%s' % port
+            print('Binding pub-socket to address %s' % address)
+            self.socket.bind(address)
+            print("Running server on port: %s" % port)
 
+        import threading
+        # threading.Thread(target=create_default_pull_socket).start()
+        threading.Thread(target=create_pub_socket).start()
 
-# * * * * * * * * * * * * * * main * * * * * * * * * * * * * * #
+    def process_event(self, event: Event):
+        """Sends the given event to a PUSH socket."""
+        packed = event.pack()
+        self.socket.send(packed, )
+
 
 def main():
     sources = BitcoinWebSocketMulti()
+    sources.write_to(ZeroMqEventProcessingSink(5634))
 
     reactor.run()
 

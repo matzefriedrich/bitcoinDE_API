@@ -1,5 +1,6 @@
 # from time import time
 # from twisted.internet import task
+import msgpack
 
 
 class Event(object):
@@ -26,6 +27,23 @@ class Event(object):
 
     def __str__(self):
         return "Event %s %s %s" % (self.event_type, self.event_id, self.event_data)
+
+    def pack(self) -> bytes:
+        """Serializes the current message to MessagePack format."""
+        message = {
+            "type": self.event_type,
+            "id": self.event_id,
+            "data": self.event_data
+        }
+        return msgpack.packb(message)
+
+
+class EventSink(object):
+    """A base class for event processors intended to be injected into a multi-source."""
+
+    def process_event(self, event: Event):
+        """To be implemented by a derived type."""
+        pass
 
 
 class BitcoinWebSocketEventHandler(object):
