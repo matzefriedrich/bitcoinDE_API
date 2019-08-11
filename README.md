@@ -25,9 +25,9 @@ using `msgpack` (see `pack` method in `Event` class). The message has the follow
 
 ````python
 message = {
-    "timestamp": int,
-    "type": str, 
+    "timestamp": int,  # indicates the unix-timestamp (utc, seconds) when the event has been aggregated
+    "type": str,  #  the event type, for instance: add, rm, ..
     "id": str,
-    "data": dict
+    "data": dict  # event-specific data
 }
 ````
