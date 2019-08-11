@@ -31,3 +31,10 @@ message = {
     "data": dict  # event-specific data
 }
 ````
+
+## Build and run Docker container
+
+````bash
+docker build -t bitcoindews-py -f Dockerfile .
+docker run -d -p 5634:5634 bitcoindews-py
+````

@@ -51,16 +51,17 @@ class BitcoinWebSocketEventHandler(object):
     """Handles an event stream, for example 'add'-Events. ProcessEvent only forwards the first occurrence of an event
     from one of the sources. Already received events get timestamped-data via AddSource"""
 
-    def __init__(self, event_name: str, interval=60):
+    def __init__(self, event_name: str, interval_seconds=60):
         self.event_name = event_name
         from twisted.internet import task
         self.check_task = task.LoopingCall(self.__clean_up)
-        self.interval = interval  # Remove old Events from stream
-        self.check_task.start(self.interval, False)
+        self.interval = interval_seconds  # Remove old Events from stream
+        run_immediately = False
+        self.check_task.start(self.interval, run_immediately)
         self.events = {}
 
-    """Must be implemented by derived types."""
     def generate_id(self, data) -> str:
+        """Returns None. Must be implemented by derived types."""
         return None
 
     def __clean_up(self):
@@ -90,7 +91,7 @@ class BitcoinWebSocketEventHandler(object):
             dt[0] = 0
 
         self.events = events
-        print("Cleanup", self.event_name, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
+        # print("Cleanup", self.event_name, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
 
     def process_event(self, data: dict, src: int, unix_time_seconds: float) -> Event:
         event_id = self.generate_id(data)
@@ -109,4 +110,5 @@ class BitcoinWebSocketEventHandler(object):
         return None
 
     def retrieve_data(self, data):
+        """Returns the given data object. Should be implemented by a derived type."""
         return data
