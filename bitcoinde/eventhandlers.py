@@ -50,12 +50,18 @@ class BitcoinWebSocketAddOrder(BitcoinWebSocketEventHandler):
         is_trade_by_fidor_reservation_allowed = int(data["is_trade_by_fidor_reservation_allowed"])
         is_trade_by_sepa_allowed = int(data["is_trade_by_sepa_allowed"])
         payment_option = int(data["payment_option"])
-        r = {"po": payment_option, "short": short}
+        r = {
+            "po": payment_option,
+            "short": short,
+            "is_trade_by_fidor_reservation_allowed": is_trade_by_fidor_reservation_allowed,
+            "is_trade_by_sepa_allowed": is_trade_by_sepa_allowed
+        }
 
         # print(is_trade_by_fidor_reservation_allowed, is_trade_by_sepa_allowed, payment_option, short)
-        for k, v in self.trans.items():
-            t, f, = v
-            r[t] = f(data.get(k))
+        for key, mapping_tuple in self.trans.items():
+            property_name, mapping_func, = mapping_tuple
+            x = data.get(key)
+            r[property_name] = mapping_func(x)
 
         return r
 
@@ -69,33 +75,37 @@ class BitcoinWebSocketSkn(BitcoinWebSocketEventHandler):
 
 
 class BitcoinWebSocketSpr(BitcoinWebSocketEventHandler):
+
     def __init__(self):
         super(BitcoinWebSocketSpr, self).__init__("spr")
 
-    @staticmethod
     def generate_id(data):
         return data['uid']
 
 
 class BitcoinWebSocketRpo(BitcoinWebSocketEventHandler):
+    """This event will be send in case an order´s payment options have been changed."""
+
     def __init__(self):
         super(BitcoinWebSocketRpo, self).__init__("po")
 
     def generate_id(self, data):
-        h, j = 0, 1
-        for k, v in data.items():
-            is_trade_by_fidor_reservation_allowed = int(v.get("is_trade_by_fidor_reservation_allowed", "0"))
+        result_id, j = 0, 1
+        for key, value in data.items():  # key must be a numeric id, for instance: 58015351
+            is_trade_by_fidor_reservation_allowed = int(value.get("is_trade_by_fidor_reservation_allowed", "0"))
             m = (is_trade_by_fidor_reservation_allowed * 2 - 1)
-            h += int(k) * m * j
+            result_id += int(key) * m * j  # wtf; would say the id remains the same...
             j += 1
-        return h
+        return result_id
 
     def retrieve_data(self, data):
-        pos = {}
-        for k, v in data.items():
-            is_trade_by_fidor_reservation_allowed = int(v.get("is_trade_by_fidor_reservation_allowed", "0"))
-            is_trade_by_sepa_allowed = int(v.get("u'is_trade_by_sepa_allowed", "0"))
+        result_dict = {}
+        for key, value in data.items():  # items() method should return a single dict, whereby
+            # key must be a numeric id, for instance: 58015351
+            is_trade_by_fidor_reservation_allowed = int(value.get("is_trade_by_fidor_reservation_allowed", "0"))
+            is_trade_by_sepa_allowed = int(value.get("u'is_trade_by_sepa_allowed", "0"))
             po = is_trade_by_fidor_reservation_allowed + is_trade_by_sepa_allowed * 2
-            pos[int(k)] = po
-        return pos
+            property_name = int(key)
+            result_dict[property_name] = po
+        return result_dict
 

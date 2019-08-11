@@ -55,7 +55,7 @@ class BitcoinWebSocketMulti(object):
         """Finds a handler for the specified type of event."""
         return self.event_handlers.get(event_type, None)
 
-    def receive_event(self, event_type: str, data, src, unix_time_seconds: float):
+    def receive_event(self, event_type: str, data: dict, src: int, unix_time_seconds: float):
         """Dispatches received events. Finds handler for given event. This method will be called by an
         event-source component."""
         current_unix_time_seconds: float = time()
@@ -96,7 +96,9 @@ class ZeroMqEventProcessingSink(EventSink):
             address = "tcp://127.0.0.1:%s" % port
             print('Connecting pull-socket to address %s' % address)
             self.default_consumer.connect(address)
-            self.default_consumer.setsockopt(zmq.SUBSCRIBE, b"")
+            any_topic = b""
+            # an empty string will make the client receive all messages regardless of what the string prefix is
+            self.default_consumer.setsockopt(zmq.SUBSCRIBE, any_topic)
 
             self.consumer_poller = zmq.Poller()
             self.consumer_poller.register(self.default_consumer, zmq.POLLIN)
@@ -113,13 +115,13 @@ class ZeroMqEventProcessingSink(EventSink):
 
         def create_pub_socket():
             self.socket = self.context.socket(zmq.PUB)
-            address = 'tcp://127.0.0.1:%s' % port
+            address = 'tcp://*:%s' % port
             print('Binding pub-socket to address %s' % address)
             self.socket.bind(address)
             print("Running server on port: %s" % port)
 
         import threading
-        # threading.Thread(target=create_default_pull_socket).start()
+        threading.Thread(target=create_default_pull_socket).start()
         threading.Thread(target=create_pub_socket).start()
 
     def process_event(self, event: Event):

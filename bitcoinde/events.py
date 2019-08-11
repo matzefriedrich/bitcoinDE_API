@@ -4,10 +4,10 @@ import msgpack
 
 
 class Event(object):
-    def __init__(self, event_id, event_type):
+    def __init__(self, event_id, event_type: str, unix_time_seconds: float):
         self.event_id = event_id
         self.event_type = event_type
-
+        self.timestamp = unix_time_seconds
         self.sources = []
         self.event_data = {}
 
@@ -31,6 +31,7 @@ class Event(object):
     def pack(self) -> bytes:
         """Serializes the current message to MessagePack format."""
         message = {
+            "timestamp": int(self.timestamp),
             "type": self.event_type,
             "id": self.event_id,
             "data": self.event_data
@@ -91,19 +92,19 @@ class BitcoinWebSocketEventHandler(object):
         self.events = events
         print("Cleanup", self.event_name, n, m, map(lambda x: "%.6f" % x, dt), ll, srcl)
 
-    def process_event(self, data, src, t) -> Event:
+    def process_event(self, data: dict, src: int, unix_time_seconds: float) -> Event:
         event_id = self.generate_id(data)
 
         evt = self.events.get(event_id, None)  # check whether the event has been seen before
         try:
             if evt is None:  # should be None, if the event is a new one
-                evt = Event(event_id, self.event_name)
+                evt = Event(event_id, self.event_name, unix_time_seconds)
                 event_data = self.retrieve_data(data)
                 evt.add_data(event_data)
                 self.events[event_id] = evt
                 return evt
         finally:
-            evt.add_source(t, src)
+            evt.add_source(unix_time_seconds, src)
 
         return None
 

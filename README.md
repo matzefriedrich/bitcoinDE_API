@@ -14,18 +14,20 @@ repository for further details about implemented API client functionality.
 * disabled ws1-endpoint, since this one does not seem to work without issues
 * removed imprecise/noisy debug outputs
 * adds support for event sinks to `MultiSource`
-* adds a ZeroMQ PUB socket event sink (publishes message-packed events)
+* adds a ZeroMQ PUB socket event sink (publishes message-packed events).
 
 ## ZeroMQ PUB socket
 
-The application opens a ZeroMQ PUB socket server on port `5634` that does not use any topics. Any event aggregated by
-the `MultiSource` client gets published over the socket. Event data is encoded/packed using `msgpack` (see `pack` 
-method in `Event` class). The message has the following format:
+This ZeroMQ PUB socket feature turns the application into a WebSocket API proxy service that is easier to consume by 
+other applications. It opens a ZeroMQ PUB socket server on port `5634` that does not use any topics. Any event 
+aggregated by the `MultiSource` client gets published over the socket. Event data is encoded/packed 
+using `msgpack` (see `pack` method in `Event` class). The message has the following format:
 
 ````python
 message = {
-    "type": self.event_type, 
-    "id": self.event_id,
-    "data": self.event_data
+    "timestamp": int,
+    "type": str, 
+    "id": str,
+    "data": dict
 }
 ````
