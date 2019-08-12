@@ -108,7 +108,7 @@ class BitcoinWebSocketRefreshExpressOption(BitcoinWebSocketEventHandler):
             m = (is_trade_by_fidor_reservation_allowed * 2 - 1)
             result_id += int(key) * m * j  # wtf; would say the id remains the same...
             j += 1
-        return result_id
+        return str(result_id)
 
     def retrieve_data(self, data):
         result_dict: dict = {}
