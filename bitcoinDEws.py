@@ -12,7 +12,7 @@ from twisted.application.internet import ClientService
 from bitcoinde.eventhandlers import \
     BitcoinWebSocketAddOrder, \
     BitcoinWebSocketRemoveOrder, \
-    BitcoinWebSocketRpo, \
+    BitcoinWebSocketRefreshExpressOption, \
     BitcoinWebSocketSkn, \
     BitcoinWebSocketSpr
 
@@ -38,7 +38,7 @@ class BitcoinWebSocketMulti(object):
                                "add_order": BitcoinWebSocketAddOrder(),
                                "skn": BitcoinWebSocketSkn(),
                                "spr": BitcoinWebSocketSpr(),
-                               "refresh_express_option": BitcoinWebSocketRpo()}
+                               "refresh_express_option": BitcoinWebSocketRefreshExpressOption()}
 
         for sid in servers:
             addr, factory_creator, = self.servers.get(sid, (None, None,))
