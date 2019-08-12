@@ -1,6 +1,8 @@
 #!/usr/bin/env python3.7
 # coding:utf-8
 from __future__ import annotations  # enable code compatibility
+
+import argparse
 from time import time
 
 import zmq
@@ -107,12 +109,23 @@ class ZeroMqEventProcessingSink(EventSink):
         self.socket.send(packed, )
 
 
-def main():
+class BitcoinWebSocketApplicationOptions(object):
+    """An interface for commandline arguments."""
+    zmq_pub_socket_port: int  # the ZeroMQ SUB socket port to use.
+
+
+def main(options: BitcoinWebSocketApplicationOptions):
     sources = BitcoinWebSocketMulti()
-    sources.write_to(ZeroMqEventProcessingSink(5634))
+    sources.write_to(ZeroMqEventProcessingSink(options.zmq_pub_socket_port))
 
     reactor.run()
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--port",
+                        dest="zmq_pub_socket_port",
+                        help="Specifies the ZeroMQ SUb socket port to use.",
+                        default=5634)
+    args: BitcoinWebSocketApplicationOptions = parser.parse_args()
+    main(args)
