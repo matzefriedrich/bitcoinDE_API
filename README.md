@@ -38,3 +38,7 @@ message = {
 docker build -t bitcoindews-py -f Dockerfile .
 docker run -d -p 5634:5634 bitcoindews-py
 ````
+
+## Examples
+
+[Connect to ZeroMQ PUB socket using C# and NetMQ](examples/csharp-netmq.md)
