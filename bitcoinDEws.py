@@ -91,28 +91,6 @@ class ZeroMqEventProcessingSink(EventSink):
 
         self.context = zmq.Context()
 
-        def create_default_pull_socket():
-            self.default_consumer = self.context.socket(zmq.SUB)
-            address = "tcp://127.0.0.1:%s" % port
-            print('Connecting pull-socket to address %s' % address)
-            self.default_consumer.connect(address)
-            any_topic = b""
-            # an empty string will make the client receive all messages regardless of what the string prefix is
-            self.default_consumer.setsockopt(zmq.SUBSCRIBE, any_topic)
-
-            self.consumer_poller = zmq.Poller()
-            self.consumer_poller.register(self.default_consumer, zmq.POLLIN)
-            print("Started default push socket consumer on port: %s" % port)
-            continue_poll = True
-            while continue_poll:
-                events = dict(self.consumer_poller.poll())
-                if self.default_consumer in events and events[self.default_consumer] == zmq.POLLIN:
-                    message = self.default_consumer.recv()
-                    if message == "exit":
-                        continue_poll = False
-                    else:
-                        print("Sub socket received data: %s" % message)
-
         def create_pub_socket():
             self.socket = self.context.socket(zmq.PUB)
             address = 'tcp://*:%s' % port
@@ -121,7 +99,6 @@ class ZeroMqEventProcessingSink(EventSink):
             print("Running server on port: %s" % port)
 
         import threading
-        threading.Thread(target=create_default_pull_socket).start()
         threading.Thread(target=create_pub_socket).start()
 
     def process_event(self, event: Event):

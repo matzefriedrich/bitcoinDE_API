@@ -41,4 +41,5 @@ docker run -d -p 5634:5634 bitcoindews-py
 
 ## Examples
 
-[Connect to ZeroMQ PUB socket using C# and NetMQ](examples/csharp-netmq.md)
+* [Connect to ZeroMQ PUB socket using C# and NetMQ](examples/csharp-netmq.md)
+* [Connect to ZeroMQ PUB socket using Python and zmq](examples/python-zmq.md)
