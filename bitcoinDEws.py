@@ -124,6 +124,7 @@ def main(options: BitcoinWebSocketApplicationOptions):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--port",
+                        type=int,
                         dest="zmq_pub_socket_port",
                         help="Specifies the ZeroMQ SUb socket port to use.",
                         default=5634)

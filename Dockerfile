@@ -14,4 +14,4 @@ RUN pip install twisted && \
 COPY bitcoinde/ /app/bitcoinde/
 ADD bitcoinDEws.py /app/
 WORKDIR /app
-CMD [ "python", "./bitcoinDEws.py"]
+ENTRYPOINT [ "python", "./bitcoinDEws.py"]
