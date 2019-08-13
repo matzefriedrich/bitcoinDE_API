@@ -15,6 +15,7 @@ repository for further details about implemented API client functionality.
 * removed imprecise/noisy debug outputs
 * adds support for event sinks to `MultiSource`
 * adds a ZeroMQ PUB socket event sink (publishes message-packed events).
+* adds commandline parsing capabilities to the WebSocket API application (defines --port argument for the ZeroMQ PUB socket server).
 
 ## ZeroMQ PUB socket
 
